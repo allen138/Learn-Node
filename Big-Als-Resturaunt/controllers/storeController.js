@@ -52,9 +52,25 @@ exports.createStore = async (req, res) => {
 };
 
 exports.getStores = async (req, res) => {
+    // pagination... 
+    const page = req.params.page || 1;
+    const limit = 4;
+    const skip = (page * limit) - limit;
     // 1. query the database for a list of all the stores..
-    const stores = await Store.find();
-    res.render('stores', { title:"Stores", stores })
+    const storesPromise = Store
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .sort({ created: 'desc'});
+    const countPromise = Store.count();
+    const [stores, count] = await Promise.all([storesPromise, countPromise]);
+    const pages = Math.ceil(count / limit);
+    if (!stores.length && skip) {
+        req.flash('info', `Hey! you asked for page ${page}, but that page doesn't exist. So you are redirected to page ${pages}`);
+        res.redirect(`/stores/page/${pages}`);
+        return;
+    }
+    res.render('stores', { title:"Stores", stores, page, pages, count })
 };
 
 const confirmOwner = (store, user) => {
@@ -156,4 +172,4 @@ exports.getHeartedStores = async (req, res) => {
 exports.getTopStores = async (req, res) => {
     const stores = await Store.getTopStores();
     res.render('topStores', {stores, title: 'Top Stores!'});
-}
+};
